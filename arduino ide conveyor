@@ -1,0 +1,72 @@
+#include <Servo.h>
+
+const int trigPin = 9;  // Pin Trigger sensor ultrasonik
+const int echoPin = 10; // Pin Echo sensor ultrasonik
+const int servoPin = 6; // Pin untuk servo motor
+
+Servo myServo; // Membuat objek servo
+
+long duration; // Waktu yang dibutuhkan untuk sinyal kembali
+int distance;  // Jarak yang terdeteksi oleh sensor ultrasonik
+
+bool objectDetected = false;  // Status apakah objek terdeteksi
+unsigned long lastTimeObjectLost = 0; // Waktu ketika objek terakhir kali menjauh
+
+void setup() {
+  // Memulai komunikasi serial untuk debugging
+  Serial.begin(9600);
+
+  // Menyiapkan pin sensor ultrasonik
+  pinMode(trigPin, OUTPUT);
+  pinMode(echoPin, INPUT);
+  
+  // Menyiapkan pin servo
+  myServo.attach(servoPin);
+
+  // Servo dalam keadaan berhenti pada awalnya
+  myServo.write(90); // Servo berhenti di posisi netral
+}
+
+void loop() {
+  // Menghantar sinyal trigger untuk mengukur jarak
+  digitalWrite(trigPin, LOW);
+  delayMicroseconds(2);
+  digitalWrite(trigPin, HIGH);
+  delayMicroseconds(10);
+  digitalWrite(trigPin, LOW);
+  
+  // Menghitung durasi waktu sinyal kembali
+  duration = pulseIn(echoPin, HIGH);
+  
+  // Menghitung jarak dalam cm
+  distance = duration * 0.0344 / 2;
+
+  // Menampilkan jarak untuk debugging
+  Serial.print("Jarak: ");
+  Serial.print(distance);
+  Serial.println(" cm");
+
+  // Jika jarak kurang dari 20 cm, objek terdeteksi
+  if (distance < 5) {
+    // Aktifkan conveyor (servo bergerak)
+    myServo.write(0); // Servo bergerak maju
+    objectDetected = true; // Objek terdeteksi
+    Serial.println("Objek Terdeteksi - Conveyor Bergerak");
+  } else if (objectDetected) {
+    // Objek baru saja menjauh, simpan waktu terakhir kali terdeteksi
+    objectDetected = false; // Objek tidak lagi terdeteksi
+    lastTimeObjectLost = millis(); // Catat waktu ketika objek menjauh
+    Serial.println("Objek Menjauh - Memulai Delay 1 Detik");
+  }
+
+  // Jika objek menjauh, beri delay 1 detik sebelum berhenti
+  if (!objectDetected && millis() - lastTimeObjectLost < 3500) {
+    myServo.write(0); // Tetap jalankan conveyor selama 1 detik
+  } else if (!objectDetected) {
+    myServo.write(90); // Hentikan conveyor setelah 1 detik
+    Serial.println("Conveyor Berhenti");
+  }
+
+  // Delay untuk stabilitas pembacaan
+  delay(100);
+}
